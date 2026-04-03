@@ -1,1 +1,0 @@
-1. When you want to commit, never mention claude or
