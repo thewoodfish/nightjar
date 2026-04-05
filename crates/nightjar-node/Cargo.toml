@@ -1,0 +1,19 @@
+[package]
+name = "nightjar-node"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "nightjar"
+path = "src/main.rs"
+
+[dependencies]
+nightjar-types      = { path = "../nightjar-types" }
+nightjar-codec      = { path = "../nightjar-codec" }
+nightjar-crypto     = { path = "../nightjar-crypto" }
+nightjar-trie       = { path = "../nightjar-trie" }
+nightjar-state      = { path = "../nightjar-state" }
+nightjar-stf        = { path = "../nightjar-stf" }
+nightjar-pvm        = { path = "../nightjar-pvm" }
+nightjar-validation = { path = "../nightjar-validation" }
+nightjar-network    = { path = "../nightjar-network" }

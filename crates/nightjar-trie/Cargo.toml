@@ -1,0 +1,9 @@
+[package]
+name = "nightjar-trie"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+nightjar-types  = { path = "../nightjar-types" }
+nightjar-codec  = { path = "../nightjar-codec" }
+nightjar-crypto = { path = "../nightjar-crypto" }

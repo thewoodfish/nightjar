@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/nightjar-types",
+    "crates/nightjar-codec",
+    "crates/nightjar-crypto",
+    "crates/nightjar-trie",
+    "crates/nightjar-state",
+    "crates/nightjar-stf",
+    "crates/nightjar-pvm",
+    "crates/nightjar-validation",
+    "crates/nightjar-network",
+    "crates/nightjar-node",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"

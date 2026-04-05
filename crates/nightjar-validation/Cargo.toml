@@ -1,0 +1,9 @@
+[package]
+name = "nightjar-validation"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+nightjar-types  = { path = "../nightjar-types" }
+nightjar-crypto = { path = "../nightjar-crypto" }
+nightjar-state  = { path = "../nightjar-state" }

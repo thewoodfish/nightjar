@@ -1,0 +1,8 @@
+[package]
+name = "nightjar-state"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+nightjar-types = { path = "../nightjar-types" }
+nightjar-trie  = { path = "../nightjar-trie" }
