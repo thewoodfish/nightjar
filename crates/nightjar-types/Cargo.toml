@@ -4,5 +4,8 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+nightjar-crypto = { path = "../nightjar-crypto" }
+nightjar-codec = { path = "../nightjar-codec" }
+
 parity-scale-codec = { workspace = true }
 thiserror = { workspace = true }

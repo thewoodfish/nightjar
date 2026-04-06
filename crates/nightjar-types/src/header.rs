@@ -9,12 +9,12 @@
 //! H ≡ (HP, HR, HX, HT, HE, HW, HO, HI, HV, HS)
 //! Equation 5.1
 
-use parity_scale_codec::{Decode, Encode};
 use crate::primitives::{
-    BandersnatchPublic, BandersnatchSignature, Ed25519Public,
-    Hash, TimeSlot, ValidatorIndex,
+    BandersnatchPublic, BandersnatchSignature, Ed25519Public, Hash, TimeSlot, ValidatorIndex,
 };
-
+use nightjar_codec::header::*;
+use nightjar_crypto::blake;
+use parity_scale_codec::{Decode, Encode};
 
 /// A validator key tuple: (Bandersnatch key, Ed25519 key).
 /// Used in the epoch marker. Equation 6.27: (kb, ke) | k ← γ'P
@@ -25,7 +25,6 @@ pub struct ValidatorKeyPair {
     /// Ed25519 key ke — used for guarantees, assurances, audits.
     pub ed25519: Ed25519Public,
 }
-
 
 /// The epoch marker HE.
 /// Present only on the first block of a new epoch.
@@ -44,7 +43,6 @@ pub struct EpochMarker {
     pub validator_keys: Vec<ValidatorKeyPair>,
 }
 
-
 /// A Safrole seal-key ticket.
 /// Set T in the Graypaper.
 ///
@@ -56,7 +54,6 @@ pub struct Ticket {
     /// Ticket attempt index e. Must be < N = 2.
     pub attempt: u8,
 }
-
 
 /// The JAM block header.
 ///
@@ -139,11 +136,17 @@ impl Header {
     /// Used to form the parent_hash of child blocks.
     ///
     /// Equation 5.2: HP ≡ H(E(P(H)))
-    /// Requires the codec and crypto crates — implemented there.
-    /// This stub returns a placeholder until wired up.
     pub fn hash(&self) -> Hash {
-        // TODO: wire in nightjar-codec + nightjar-crypto
-        // return blake2b_256(&scale_encode(self))
-        [0u8; 32]
+        let encoded = encode_header(self);
+        blake::hash(encoded)
+    }
+
+    /// Compute H(EU(H)) — hash of the unsigned header.
+    ///
+    /// This is what the seal HS signs over.
+    /// Equations 6.15/6.16: HS ∈ ∽V^{EU(H)}_{HA}⟨...⟩
+    pub fn hash_header_unsigned(header: &Header) -> Hash {
+        let encoded = encode_header_unsigned(header);
+        blake::hash(&encoded)
     }
 }
