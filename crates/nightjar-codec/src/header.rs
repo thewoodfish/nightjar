@@ -171,3 +171,189 @@ fn decode_ticket(d: &mut Decoder) -> Result<Ticket, CodecError> {
     let attempt = d.read_u8()?;
     Ok(Ticket { id, attempt })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nightjar_types::header::Header;
+
+    fn dummy_hash() -> [u8; 32] {
+        [0xABu8; 32]
+    }
+    fn dummy_sig() -> [u8; 96] {
+        [0xCDu8; 96]
+    }
+
+    fn make_header(slot: u32) -> Header {
+        Header {
+            parent_hash: dummy_hash(),
+            prior_state_root: dummy_hash(),
+            extrinsic_hash: dummy_hash(),
+            time_slot: slot,
+            epoch_marker: None,
+            winning_tickets: None,
+            offenders_mark: vec![],
+            author_index: 42,
+            entropy_source: dummy_sig(),
+            seal: dummy_sig(),
+        }
+    }
+
+    // ── Round-trip tests ──────────────────────────────────────────────────────
+
+    #[test]
+    fn header_encode_decode_roundtrip_simple() {
+        let original = make_header(12345);
+        let encoded = encode_header(&original);
+        let decoded = decode_header(&encoded).unwrap();
+        assert_eq!(original, decoded);
+    }
+
+    #[test]
+    fn header_encode_decode_roundtrip_with_epoch_marker() {
+        let mut h = make_header(600);
+        h.epoch_marker = Some(EpochMarker {
+            entropy: [0x01u8; 32],
+            entropy_prev: [0x02u8; 32],
+            validator_keys: vec![
+                ValidatorKeyPair {
+                    bandersnatch: [0x03u8; 32],
+                    ed25519: [0x04u8; 32],
+                },
+                ValidatorKeyPair {
+                    bandersnatch: [0x05u8; 32],
+                    ed25519: [0x06u8; 32],
+                },
+            ],
+        });
+        let encoded = encode_header(&h);
+        let decoded = decode_header(&encoded).unwrap();
+        assert_eq!(h, decoded);
+    }
+
+    #[test]
+    fn header_encode_decode_roundtrip_with_winning_tickets() {
+        let mut h = make_header(500);
+        h.winning_tickets = Some(vec![
+            Ticket {
+                id: [0xAAu8; 32],
+                attempt: 0,
+            },
+            Ticket {
+                id: [0xBBu8; 32],
+                attempt: 1,
+            },
+        ]);
+        let encoded = encode_header(&h);
+        let decoded = decode_header(&encoded).unwrap();
+        assert_eq!(h, decoded);
+    }
+
+    #[test]
+    fn header_encode_decode_roundtrip_with_offenders() {
+        let mut h = make_header(100);
+        h.offenders_mark = vec![[0x11u8; 32], [0x22u8; 32]];
+        let encoded = encode_header(&h);
+        let decoded = decode_header(&encoded).unwrap();
+        assert_eq!(h, decoded);
+    }
+
+    #[test]
+    fn unsigned_header_excludes_seal() {
+        let h = make_header(100);
+        let full = encode_header(&h);
+        let unsigned = encode_header_unsigned(&h);
+
+        // Full = unsigned + 96-byte seal
+        assert_eq!(full.len(), unsigned.len() + 96);
+        assert_eq!(&full[..unsigned.len()], unsigned.as_slice());
+        assert_eq!(&full[unsigned.len()..], &h.seal);
+    }
+
+    #[test]
+    fn minimal_header_size() {
+        let h = make_header(0);
+        let encoded = encode_header_unsigned(&h);
+
+        // HP(32) + HR(32) + HX(32) + HT(4)
+        // + HE discriminator(1)           [None = 0x00]
+        // + HW discriminator(1)           [None = 0x00]
+        // + HI(2) + HV(96)
+        // + HO length(1) + HO items(0)   [empty sequence]
+        let expected_unsigned = 32 + 32 + 32 + 4 + 1 + 1 + 2 + 96 + 1;
+        assert_eq!(encoded.len(), expected_unsigned);
+    }
+
+    #[test]
+    fn timeslot_encoded_correctly() {
+        let h = make_header(0x01020304);
+        let encoded = encode_header_unsigned(&h);
+
+        // Timeslot starts at offset 96 (HP + HR + HX = 3 * 32)
+        let ts_bytes = &encoded[96..100];
+        assert_eq!(ts_bytes, &[0x04, 0x03, 0x02, 0x01]); // little-endian
+    }
+
+    #[test]
+    fn author_index_encoded_correctly() {
+        let h = make_header(0);
+        let encoded = encode_header_unsigned(&h);
+
+        // Find HI offset:
+        // HP(32) + HR(32) + HX(32) + HT(4) + HE(1) + HW(1) = 102
+        let hi_bytes = &encoded[102..104];
+        assert_eq!(hi_bytes, &[42, 0]); // author_index = 42, little-endian
+    }
+
+    #[test]
+    fn natural_zero() {
+        let mut out = vec![];
+        crate::encode::encode_natural(0, &mut out);
+        assert_eq!(out, vec![0x00]);
+    }
+
+    #[test]
+    fn natural_small_values() {
+        // l=0: values 1..=127 encode as a SINGLE byte (the value itself).
+        // Equation C.5: prefix = 2^8 - 2^8 + x = x, E0(...) = []
+        for val in [1u64, 63, 127] {
+            let mut out = vec![];
+            crate::encode::encode_natural(val, &mut out);
+            assert_eq!(out.len(), 1, "val={val} should be 1 byte");
+            assert_eq!(out[0], val as u8, "val={val} byte should equal value");
+        }
+    }
+
+    #[test]
+    fn natural_roundtrip() {
+        let test_values = [
+            0u64,
+            1,
+            127,
+            128,
+            255,
+            256,
+            16383,
+            16384,
+            0xFFFFFF,
+            u32::MAX as u64,
+            u64::MAX,
+        ];
+        for &val in &test_values {
+            let mut out = vec![];
+            crate::encode::encode_natural(val, &mut out);
+            let mut d = Decoder::new(&out);
+            let decoded = d.read_natural().unwrap();
+            assert_eq!(val, decoded, "roundtrip failed for {val}");
+        }
+    }
+
+    #[test]
+    fn truncated_data_returns_error() {
+        let h = make_header(100);
+        let encoded = encode_header(&h);
+        // Truncate to 10 bytes
+        let result = decode_header(&encoded[..10]);
+        assert!(result.is_err());
+    }
+}

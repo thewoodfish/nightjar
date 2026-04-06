@@ -63,37 +63,41 @@ pub fn encode_bytes(bytes: &[u8], out: &mut Vec<u8>) {
 
 /// Encode a natural number with variable-length encoding.
 /// Appendix C.1.1, Equation C.5.
+///
+/// Encoding ranges:
+///   0         → [0x00]                    1 byte
+///   1..127    → [val]                     1 byte  (l=0)
+///   128..16383→ [0x80|(val>>8), val&0xFF] 2 bytes (l=1)
+///   ...up to 8 bytes for large values
+///   ≥2^56     → [0xFF, val as 8 LE bytes] 9 bytes
 pub fn encode_natural(val: u64, out: &mut Vec<u8>) {
     if val == 0 {
         out.push(0x00);
         return;
     }
 
-    // Find the smallest l such that val < 2^(7*(l+1))
-    // l=0: val < 2^7  = 128
-    // l=1: val < 2^14 = 16384
-    // l=2: val < 2^21
-    // l=3: val < 2^28
-    // l=4: val < 2^35
-    // l=5: val < 2^42
-    // l=6: val < 2^49
-    // l=7: val < 2^56
-    // otherwise: use 0xFF prefix + 8 bytes
-
-    let l = (0u8..8)
-        .find(|&l| val < (1u64 << (7 * (l as u32 + 1))))
+    // Find l: smallest value in 0..=7 such that val < 2^(7*(l+1))
+    let l = (0usize..8)
+        .find(|&l| val < (1u64 << (7 * (l + 1))))
         .unwrap_or(8);
 
-    if l == 8 {
-        // Full 8-byte encoding
+    if l == 0 {
+        // Single-byte encoding: the prefix IS the value.
+        // prefix = 2^8 - 2^8 + val = val (for val in 1..=127)
+        // No additional bytes follow.
+        out.push(val as u8);
+    } else if l == 8 {
+        // Value >= 2^56: 9-byte encoding with 0xFF sentinel.
         out.push(0xFF);
         out.extend_from_slice(&val.to_le_bytes());
     } else {
-        // Prefix byte: 2^8 - 2^(8-l) + high bits of val
-        let prefix = (0xFFu16 - (1u16 << (8 - l)) + 1) as u8;
+        // l in 1..=7: prefix + l additional bytes.
+        // prefix = 2^8 - 2^(8-l) + ⌊val / 2^(8l)⌋
+        // Safe: l >= 1 so (8-l) <= 7, shift is always valid in u8 range.
+        let prefix_base = 0xFFu8 - ((1u8) << (8 - l)) + 1;
         let high = (val >> (8 * l)) as u8;
-        out.push(prefix | high);
-        // Low l bytes little-endian
+        out.push(prefix_base | high);
+        // Low l bytes in little-endian order.
         for i in 0..l {
             out.push((val >> (8 * i)) as u8);
         }
