@@ -2,3 +2,7 @@
 name = "nightjar-types"
 version.workspace = true
 edition.workspace = true
+
+[dependencies]
+parity-scale-codec = { workspace = true }
+thiserror = { workspace = true }

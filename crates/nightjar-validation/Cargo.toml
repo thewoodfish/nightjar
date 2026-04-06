@@ -7,3 +7,5 @@ edition.workspace = true
 nightjar-types  = { path = "../nightjar-types" }
 nightjar-crypto = { path = "../nightjar-crypto" }
 nightjar-state  = { path = "../nightjar-state" }
+
+thiserror = { workspace = true }

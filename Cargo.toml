@@ -16,3 +16,11 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
+
+# All crates reference these via { workspace = true }
+# to keep versions consistent across the workspace.
+
+[workspace.dependencies]
+parity-scale-codec = { version = "3.7.5", features = ["derive"] }
+thiserror = "2.0.18"
+hex = "0.4.3"
