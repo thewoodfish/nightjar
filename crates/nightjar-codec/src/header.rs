@@ -172,6 +172,15 @@ fn decode_ticket(d: &mut Decoder) -> Result<Ticket, CodecError> {
     Ok(Ticket { id, attempt })
 }
 
+/// Compute H(E(H)) — the hash of the fully encoded header.
+///
+/// Used to form HP (parent hash) in child blocks.
+/// Equation 5.2: HP ≡ H(E(P(H)))
+pub fn hash_header(header: &Header) -> nightjar_types::primitives::Hash {
+    let encoded = encode_header(header);
+    nightjar_crypto::blake::hash(&encoded)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -180,6 +189,7 @@ mod tests {
     fn dummy_hash() -> [u8; 32] {
         [0xABu8; 32]
     }
+
     fn dummy_sig() -> [u8; 96] {
         [0xCDu8; 96]
     }
@@ -198,8 +208,6 @@ mod tests {
             seal: dummy_sig(),
         }
     }
-
-    // ── Round-trip tests ──────────────────────────────────────────────────────
 
     #[test]
     fn header_encode_decode_roundtrip_simple() {

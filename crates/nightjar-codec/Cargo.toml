@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 nightjar-types = { path = "../nightjar-types" }
+nightjar-crypto = { path = "../nightjar-crypto" }
 
 thiserror = { workspace = true }
 hex = { workspace = true }
